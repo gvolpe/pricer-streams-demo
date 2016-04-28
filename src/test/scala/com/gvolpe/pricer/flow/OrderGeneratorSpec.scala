@@ -13,7 +13,7 @@ class OrderGeneratorSpec extends StreamSpec with OrderGeneratorFixture {
 
   behavior of "OrderGenerator"
 
-  it should "Generate ten orders" in {
+  it should "generate ten orders" in {
     implicit val pool = Executors.newFixedThreadPool(6)
     implicit val strategy = Strategy.Executor(pool)
     val (orderGenChannel, consumerEx) = createStreams
@@ -23,7 +23,7 @@ class OrderGeneratorSpec extends StreamSpec with OrderGeneratorFixture {
     } yield {
       updates shouldBe an [Order]
     }
-    result.take(1).runLast.timed(5.seconds).run.get
+    result.take(1).runLast.timed(3.seconds).run.get
   }
 
 }

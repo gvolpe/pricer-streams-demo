@@ -11,13 +11,13 @@ object PricerStream {
   def flow(consumer: ProcessT[Order],
            logger: Sink[Task, Order],
            storageEx: Exchange[Order, Order],
-           pricerCh: Channel[Task, Order, Order],
+           pricer: Channel[Task, Order, Order],
            publisher: Sink[Task, Order])
           (implicit S: Strategy)= {
     merge.mergeN(
       Process(
         consumer          observe   logger    to  storageEx.write,
-        storageEx.read    through   pricerCh  to  publisher
+        storageEx.read    through   pricer    to  publisher
       )
     )
   }

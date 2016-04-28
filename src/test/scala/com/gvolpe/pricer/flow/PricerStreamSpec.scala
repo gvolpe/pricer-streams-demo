@@ -2,55 +2,60 @@ package com.gvolpe.pricer.flow
 
 import java.util.concurrent.Executors
 
-import com.gvolpe.pricer.{Item, Order, _}
-
-import scalaz.concurrent.{Strategy, Task}
-import scalaz.stream.{Exchange, async, channel, sink}
+import com.gvolpe.pricer.service.PricerService
+import com.gvolpe.pricer.{Order, _}
 
 import scala.concurrent.duration._
+import scalaz.concurrent.{Strategy, Task}
+import scalaz.stream.{channel, sink}
+import scalaz.stream.Process._
 
 class PricerStreamSpec extends StreamSpec with PricerStreamFixture {
 
   behavior of "PricerStream"
 
-  // TODO: Create the proper unit tests
-//  it should "Generate ten orders" in {
-//    implicit val pool = Executors.newFixedThreadPool(6)
-//    implicit val strategy = Strategy.Executor(pool)
-//    val (orderGenChannel, consumerEx) = createStreams
-//    val result = for {
-//      _         <-  OrderGenerator.flow(consumerEx.write, orderGenChannel)
-//      updates   <-  consumerEx.read.take(10)
-//    } yield {
-//      updates shouldBe an [Order]
-//    }
-//    result.take(1).runLast.timed(5.seconds).run.get
-//  }
+  it should "publish an updated order downstream" in {
+    implicit val pool = Executors.newFixedThreadPool(6)
+    implicit val strategy = Strategy.Executor(pool)
+    val (consumer, logger, storageEx, pricer, publisherEx, kafkaQ) = createStreams
+    val result = for {
+      _           <-  eval(kafkaQ.enqueueOne(testOrder))
+      _           <-  PricerStream.flow(consumer, logger, storageEx, pricer, publisherEx.write)
+      update      <-  publisherEx.read.take(1)
+    } yield {
+      update.items should be (List(Item(1L, "test", 2.1)))
+    }
+    result.take(1).runLast.timed(3.seconds).run.get
+  }
 
 }
 
-trait PricerStreamFixture {
+trait PricerStreamFixture extends StreamFixture {
+
+  val testOrder = Order(5L, List(Item(1L, "test", 2.0)))
 
   def createStreams = {
-
-    // TODO: Use generators to create Orders (org.scalacheck.Gen)
-    val orderGenChannel: ChannelT[Int, Order] = {
-      val pf: Int => Task[Order] = { orderId =>
-        Task.delay { Order(orderId.toLong, List(Item(5L, s"laptop-$orderId", 250.00))) }
+    val pricer: ChannelT[Order, Order] = {
+      val pf: Order => Task[Order] = { order =>
+        PricerService.updatePrices(order)
       }
       channel.lift(pf)
     }
 
-    val kafkaQ = async.unboundedQueue[Order]
+    val kafkaQ      = createOrderQ
+    val storageQ    = createOrderQ
+    val downstreamQ = createOrderQ
 
-    val consumerEx = Exchange[Order, Order](
-      kafkaQ.dequeue,
-      sink.lift[Task, Order]( order =>
-        kafkaQ.enqueueOne(order)
-      )
+    val consumerEx  = createOrderEx(kafkaQ.dequeue, kafkaQ.enqueueOne)
+    val storageEx   = createOrderEx(storageQ.dequeue, storageQ.enqueueOne)
+
+    val publisherEx = createOrderEx(downstreamQ.dequeue, (o: Order) =>
+      showOrder("Publishing", o) flatMap (_ => downstreamQ.enqueueOne(o))
     )
 
-    (orderGenChannel, consumerEx)
+    val logger      = sink.lift[Task, Order] { (order: Order) => showOrder("Consuming ", order) }
+
+    (consumerEx.read, logger, storageEx, pricer, publisherEx, kafkaQ)
   }
 
 }
