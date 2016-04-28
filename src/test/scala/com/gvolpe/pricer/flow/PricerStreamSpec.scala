@@ -2,6 +2,7 @@ package com.gvolpe.pricer.flow
 
 import java.util.concurrent.Executors
 
+import com.gvolpe.pricer.generator.OrderTestGenerator
 import com.gvolpe.pricer.service.PricerService
 import com.gvolpe.pricer.{Order, _}
 
@@ -23,7 +24,9 @@ class PricerStreamSpec extends StreamSpec with PricerStreamFixture {
       _           <-  PricerStream.flow(consumer, logger, storageEx, pricer, publisherEx.write)
       update      <-  publisherEx.read.take(1)
     } yield {
-      update.items should be (List(Item(1L, "test", 2.1)))
+      update.items foreach { item =>
+        item.price should be (OrderTestGenerator.FixedUpdatedPrice)
+      }
     }
     result.take(1).runLast.timed(3.seconds).run.get
   }
@@ -32,7 +35,7 @@ class PricerStreamSpec extends StreamSpec with PricerStreamFixture {
 
 trait PricerStreamFixture extends StreamFixture {
 
-  val testOrder = Order(5L, List(Item(1L, "test", 2.0)))
+  val testOrder = OrderTestGenerator.createOrder.sample.get
 
   def createStreams = {
     val pricer: ChannelT[Order, Order] = {

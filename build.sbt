@@ -10,6 +10,7 @@ libraryDependencies ++= Seq(
   "org.scalaz" %% "scalaz-core" % scalazVersion,
   "org.scalaz" %% "scalaz-concurrent" % scalazVersion,
   "org.scalaz.stream" %% "scalaz-stream" % "0.8",
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test"
+  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+  "org.scalacheck" %% "scalacheck" % "1.13.0" % "test"
 )
 

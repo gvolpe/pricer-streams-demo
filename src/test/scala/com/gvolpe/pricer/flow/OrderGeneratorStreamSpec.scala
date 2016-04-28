@@ -2,14 +2,14 @@ package com.gvolpe.pricer.flow
 
 import java.util.concurrent.Executors
 
-import com.gvolpe.pricer.{Item, Order, _}
+import com.gvolpe.pricer.generator.OrderTestGenerator
+import com.gvolpe.pricer.{Order, _}
 
 import scalaz.concurrent.{Strategy, Task}
-import scalaz.stream.{Exchange, async, channel, sink}
-
+import scalaz.stream.{async, channel}
 import scala.concurrent.duration._
 
-class OrderGeneratorSpec extends StreamSpec with OrderGeneratorFixture {
+class OrderGeneratorStreamSpec extends StreamSpec with OrderGeneratorStreamFixture {
 
   behavior of "OrderGenerator"
 
@@ -18,7 +18,7 @@ class OrderGeneratorSpec extends StreamSpec with OrderGeneratorFixture {
     implicit val strategy = Strategy.Executor(pool)
     val (orderGenChannel, consumerEx) = createStreams
     val result = for {
-      _         <-  OrderGenerator.flow(consumerEx.write, orderGenChannel)
+      _         <-  OrderGeneratorStream.flow(consumerEx.write, orderGenChannel)
       updates   <-  consumerEx.read.take(10)
     } yield {
       updates shouldBe an [Order]
@@ -28,26 +28,19 @@ class OrderGeneratorSpec extends StreamSpec with OrderGeneratorFixture {
 
 }
 
-trait OrderGeneratorFixture {
+trait OrderGeneratorStreamFixture extends StreamFixture {
 
   def createStreams = {
 
-    // TODO: Use generators to create Orders (org.scalacheck.Gen)
     val orderGenChannel: ChannelT[Int, Order] = {
       val pf: Int => Task[Order] = { orderId =>
-        Task.delay { Order(orderId.toLong, List(Item(5L, s"laptop-$orderId", 250.00))) }
+        Task.delay { OrderTestGenerator.createRandomOrder.sample.get }
       }
       channel.lift(pf)
     }
 
-    val kafkaQ = async.unboundedQueue[Order]
-
-    val consumerEx = Exchange[Order, Order](
-      kafkaQ.dequeue,
-      sink.lift[Task, Order]( order =>
-        kafkaQ.enqueueOne(order)
-      )
-    )
+    val kafkaQ      = async.unboundedQueue[Order]
+    val consumerEx  = createOrderEx(kafkaQ.dequeue, kafkaQ.enqueueOne)
 
     (orderGenChannel, consumerEx)
   }

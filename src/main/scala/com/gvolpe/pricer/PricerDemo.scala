@@ -2,7 +2,7 @@ package com.gvolpe.pricer
 
 import java.util.concurrent.Executors
 
-import com.gvolpe.pricer.flow.{OrderGenerator, PricerStream}
+import com.gvolpe.pricer.flow.{OrderGeneratorStream, PricerStream}
 
 import scalaz.{Order => _, _}
 import scalaz.Scalaz.{merge => _, _}
@@ -21,7 +21,7 @@ object PricerDemo extends App with PricerComponents {
   def program: Task[Unit] = {
     val streaming = Process(
       PricerStream.flow(consumerEx.read, logger, storageEx, pricer, publisher),
-      OrderGenerator.flow(consumerEx.write)
+      OrderGeneratorStream.flow(consumerEx.write)
     )
     merge.mergeN(maxOpen = 10)(streaming)
       .run

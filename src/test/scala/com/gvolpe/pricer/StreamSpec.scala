@@ -1,5 +1,5 @@
 package com.gvolpe.pricer
 
-import org.scalatest.{FlatSpec, Inside, Matchers}
+import org.scalatest.{FlatSpecLike, Inside, Matchers}
 
-trait StreamSpec extends FlatSpec with Matchers with Inside
+trait StreamSpec extends FlatSpecLike with Matchers with Inside

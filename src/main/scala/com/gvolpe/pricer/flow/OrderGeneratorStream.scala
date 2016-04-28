@@ -7,7 +7,7 @@ import scalaz.Scalaz.{merge => _}
 import scalaz.concurrent.Task
 import scalaz.stream._
 
-object OrderGenerator {
+object OrderGeneratorStream {
 
   private val defaultOrderGen: ChannelT[Int, Order] = {
     val pf: Int => Task[Order] = { orderId =>
