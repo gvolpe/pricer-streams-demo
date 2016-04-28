@@ -1,5 +1,7 @@
 package com.gvolpe.pricer
 
+import com.gvolpe.pricer.broker.{OrderKafkaBroker, OrderRabbitMqBroker}
+import com.gvolpe.pricer.repository.OrderDb
 import com.gvolpe.pricer.service.PricerService
 
 import scalaz.{Order => _, _}
@@ -9,15 +11,10 @@ import stream.{channel, _}
 
 trait PricerComponents {
 
-  val consumerEx: Exchange[Order, Order] = {
-    val kafkaT = async.topic[Order]()
-    Exchange[Order, Order](
-      kafkaT.subscribe,
-      sink.lift[Task, Order]( order =>
-        kafkaT.publishOne(order)
-      )
-    )
-  }
+  private def createOrderEx(read: ProcessT[Order], write: Order => Task[Unit]) =
+    Exchange[Order, Order](read, sink.lift[Task, Order]( order => write(order) ))
+
+  val consumerEx = createOrderEx(OrderKafkaBroker.consume, OrderKafkaBroker.publish)
 
   val pricer: ChannelT[Order, Order] = {
     val pf: Order => Task[Order] = { order =>
@@ -26,18 +23,11 @@ trait PricerComponents {
     channel.lift(pf)
   }
 
-  val storageEx: Exchange[Order, Order] = {
-    val storageQ = async.boundedQueue[Order](100)
-    Exchange[Order, Order](
-      storageQ.dequeue,
-      sink.lift[Task, Order]( order =>
-        storageQ.enqueueOne(order)
-      )
-    )
-  }
+  val storageQ = async.boundedQueue[Order](100)
+  val storageEx = createOrderEx(storageQ.dequeue, (order: Order) => OrderDb.persist(order) flatMap (_ => storageQ.enqueueOne(order)))
 
   val publisher: SinkT[Order] = sink.lift[Task, Order]( order =>
-    showOrder("Publishing", order)
+    OrderRabbitMqBroker.publish(order)
   )
 
   val logger: SinkT[Order] = sink.lift[Task, Order](order =>
