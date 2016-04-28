@@ -10,14 +10,16 @@ object OrderTestGenerator {
 
   def createRandomOrder = for {
     orderId <- Gen.choose(1L, 100L)
-    items   <- createRandomItems
+    items   <- createRandomItemList
   } yield Order(orderId, items)
 
-  def createRandomItems = for {
+  def createRandomItem = for {
     itemId  <- Gen.choose(1L, 500L)
     name    <- Gen.alphaStr
     price   <- Gen.choose(100.00, 1500.00)
-  } yield List(Item(itemId, name, price))
+  } yield Item(itemId, name, price)
+
+  def createRandomItemList = Gen.containerOfN[List, Item](3, createRandomItem)
 
   def createOrder = for {
     orderId <- Gen.choose(1L, 100L)
@@ -29,10 +31,6 @@ object OrderTestGenerator {
     name    <- Gen.alphaStr
   } yield Item(itemId, s"item-$name", FixedPrice)
 
-  val createItemList = for {
-    item1 <- createItem
-    item2 <- createItem
-    item3 <- createItem
-  } yield List(item1, item2, item3)
+  def createItemList = Gen.containerOfN[List, Item](5, createItem)
 
 }
