@@ -6,5 +6,5 @@ import scalaz.concurrent.Task
 
 trait Broker {
   def consume: ProcessT[Order]
-  def publish(order: Order): Task[Unit]
+  def produce(order: Order): Task[Unit]
 }

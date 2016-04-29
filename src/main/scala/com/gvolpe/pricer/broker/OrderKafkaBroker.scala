@@ -11,6 +11,6 @@ object OrderKafkaBroker extends Broker {
 
   override def consume: ProcessT[Order] = ordersTopic.subscribe
 
-  override def publish(order: Order): Task[Unit] = ordersTopic.publishOne(order)
+  override def produce(order: Order): Task[Unit] = ordersTopic.publishOne(order)
 
 }

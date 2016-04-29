@@ -14,7 +14,7 @@ trait PricerComponents {
   private def createOrderEx(read: ProcessT[Order], write: Order => Task[Unit]) =
     Exchange[Order, Order](read, sink.lift[Task, Order]( order => write(order) ))
 
-  val consumerEx = createOrderEx(OrderKafkaBroker.consume, OrderKafkaBroker.publish)
+  val consumerEx = createOrderEx(OrderKafkaBroker.consume, OrderKafkaBroker.produce)
 
   val pricer: ChannelT[Order, Order] = {
     val pf: Order => Task[Order] = { order =>
@@ -27,7 +27,7 @@ trait PricerComponents {
   val storageEx = createOrderEx(storageQ.dequeue, (order: Order) => OrderDb.persist(order) flatMap (_ => storageQ.enqueueOne(order)))
 
   val publisher: SinkT[Order] = sink.lift[Task, Order]( order =>
-    OrderRabbitMqBroker.publish(order)
+    OrderRabbitMqBroker.produce(order)
   )
 
   val logger: SinkT[Order] = sink.lift[Task, Order](order =>

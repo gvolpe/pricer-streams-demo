@@ -11,7 +11,7 @@ object OrderRabbitMqBroker extends Broker {
 
   override def consume: ProcessT[Order] = orderQ.dequeue
 
-  override def publish(order: Order): Task[Unit] = {
+  override def produce(order: Order): Task[Unit] = {
     showOrder("Publishing", order) flatMap (_ => orderQ.enqueueOne(order))
   }
 
